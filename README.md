@@ -1,9 +1,7 @@
 # Dune SQL Logger
 
-Automated SQL telemetry for Dune Analytics to build real-world fine-tuning datasets.
-
 ## Overview
-A browser extension that silently captures Dune Analytics SQL execution history. It records queries, errors, and auto-detected fixes to create a high-quality, ground-truth dataset for training LLMs on Dune SQL.
+A browser extension that silently captures Dune Analytics SQL execution history. It records queries, errors, and auto-detected fixes
 
 ## Features (Planned)
 - Intercept GraphQL and Execution requests
