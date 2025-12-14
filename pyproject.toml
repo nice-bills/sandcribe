@@ -1,0 +1,12 @@
+[project]
+name = "dune-sql-logger"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.124.4",
+    "python-dotenv>=1.2.1",
+    "supabase>=2.25.1",
+    "uvicorn>=0.38.0",
+]
