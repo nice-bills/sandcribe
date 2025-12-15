@@ -1,1 +1,138 @@
-body { width: 300px; }
+body {
+    width: 320px;
+    margin: 0;
+    padding: 16px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    background-color: #1e1e1e; /* Solid dark grey */
+    color: #d4d4d4; /* Off-white text */
+    font-size: 12px;
+}
+
+.header {
+    border-bottom: 1px solid #333;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 14px;
+    margin: 0;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+/* Stats Row */
+.stats-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    background: #252526;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px 0;
+}
+
+.stat-box {
+    flex: 1;
+    text-align: center;
+    border-right: 1px solid #333;
+}
+
+.stat-box:last-child {
+    border-right: none;
+}
+
+.stat-label {
+    display: block;
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 500;
+    color: #eee;
+}
+
+.stat-box.error .stat-value { color: #f48771; } /* Soft Red */
+.stat-box.success .stat-value { color: #89d185; } /* Soft Green */
+
+/* List Section */
+.list-container h3 {
+    font-size: 11px;
+    margin: 0 0 10px 0;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: normal;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+tr {
+    border-bottom: 1px solid #2d2d2d;
+    transition: background 0.2s;
+}
+
+tr:hover {
+    background: #2a2d2e;
+}
+
+tr:last-child {
+    border-bottom: none;
+}
+
+td {
+    padding: 8px 4px;
+    vertical-align: middle;
+}
+
+/* Time Column */
+td:first-child {
+    color: #666;
+    font-size: 11px;
+    width: 50px;
+}
+
+/* Query ID Column */
+td:nth-child(2) {
+    color: #d4d4d4;
+    font-family: monospace;
+}
+
+/* Status Column */
+td:last-child {
+    text-align: right;
+}
+
+/* Status Badges - Minimal Text Only */
+.status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.status-success { color: #89d185; background: rgba(137, 209, 133, 0.1); }
+.status-error { color: #f48771; background: rgba(244, 135, 113, 0.1); }
+.status-fixed { color: #4fc1ff; background: rgba(79, 193, 255, 0.1); }
+
+/* Empty State */
+#empty-state {
+    text-align: center;
+    padding: 30px;
+    color: #555;
+    font-style: italic;
+    background: #252526;
+    border-radius: 4px;
+}
+
+.hidden { display: none; }

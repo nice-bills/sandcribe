@@ -1,1 +1,39 @@
-<!DOCTYPE html><html><body><h1>Dune Logger</h1><script src='popup.js'></script></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dune SQL Logger</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Dune Logger</h1>
+    </div>
+
+    <div class="stats-container">
+        <div class="stat-box">
+            <span class="stat-label">Total</span>
+            <span class="stat-value" id="total-count">0</span>
+        </div>
+        <div class="stat-box error">
+            <span class="stat-label">Errors</span>
+            <span class="stat-value" id="error-count">0</span>
+        </div>
+        <div class="stat-box success">
+            <span class="stat-label">Fixed</span>
+            <span class="stat-value" id="fix-count">0</span>
+        </div>
+    </div>
+
+    <div class="list-container">
+        <h3>Recent Activity</h3>
+        <table id="execution-table">
+            <tbody id="execution-list">
+                <!-- Rows injected by JS -->
+            </tbody>
+        </table>
+        <div id="empty-state" class="hidden">No data captured yet.</div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
