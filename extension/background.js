@@ -44,6 +44,56 @@ function handleFindQuery(payload) {
     }
 }
 
+async function fetchQueryTextFromDune(queryId) {
+    const graphqlEndpoint = "https://core-api.dune.com/public/graphql";
+    const payload = {
+        "operationName": "GetQuery",
+        "variables": {"id": queryId},
+        "query": `
+            query GetQuery($id: Int!) {
+                query(id: $id) {
+                    id
+                    name
+                    description
+                    parameters
+                    ownerFields {
+                        query
+                    }
+                }
+            }
+        `
+    };
+
+    try {
+        const response = await fetch(graphqlEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Referer': 'https://dune.com/' // Mimic browser for consistency
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            console.error(`[DUNE-LOGGER-BG] Failed to fetch query ${queryId} from Dune API: ${response.status} ${response.statusText}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const query = data?.data?.query;
+        if (query && query.ownerFields && query.ownerFields.query) {
+            console.log(`[DUNE-LOGGER-BG] Successfully fetched SQL for Query ${queryId} from Dune API.`);
+            return query.ownerFields.query;
+        } else {
+            console.warn(`[DUNE-LOGGER-BG] SQL text not found in GraphQL response for Query ${queryId}.`, data);
+            return null;
+        }
+    } catch (error) {
+        console.error(`[DUNE-LOGGER-BG] Error in fetchQueryTextFromDune for Query ${queryId}:`, error);
+        return null;
+    }
+}
+
 async function handleExecution(payload) {
     try {
         // payload structure: { execution_queued: ..., execution_running: ..., execution_succeeded: {...}, execution_failed: {...} }
@@ -68,7 +118,12 @@ async function handleExecution(payload) {
         }
 
         // Try to get text from payload (override) OR cache
-        const queryText = payload.query_text || queryTextCache.get(queryId) || null;
+        let queryText = payload.query_text || queryTextCache.get(queryId) || null;
+
+        // If queryText is still null, try to fetch it from Dune API (like dune-mcp does)
+        if (!queryText && queryId) {
+            queryText = await fetchQueryTextFromDune(queryId);
+        }
 
         const record = {
             id: crypto.randomUUID(),
