@@ -7,20 +7,24 @@
     "storage"
   ],
   "host_permissions": [
-    "https://dune.com/*"
+    "https://dune.com/*",
+    "https://core-api.dune.com/*",
+    "https://app-api.dune.com/*"
   ],
   "content_scripts": [
     {
       "matches": ["https://dune.com/*"],
       "js": ["content_main.js"],
       "run_at": "document_start",
-      "world": "MAIN"
+      "world": "MAIN",
+      "all_frames": true
     },
     {
       "matches": ["https://dune.com/*"],
       "js": ["content_isolated.js"],
       "run_at": "document_start",
-      "world": "ISOLATED"
+      "world": "ISOLATED",
+      "all_frames": true
     }
   ],
   "action": {
