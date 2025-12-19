@@ -125,6 +125,36 @@ td:last-child {
 .status-error { color: #f48771; background: rgba(244, 135, 113, 0.1); }
 .status-fixed { color: #4fc1ff; background: rgba(79, 193, 255, 0.1); }
 
+/* Interactive ID/Intent Cell */
+.id-cell {
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 150px;
+}
+
+.id-cell:hover .edit-icon {
+    opacity: 1;
+}
+
+.edit-icon {
+    opacity: 0.2;
+    font-size: 10px;
+    margin-left: 4px;
+    transition: opacity 0.2s;
+}
+
+.intent-text {
+    color: #ce9178; /* VS Code String color */
+    font-style: italic;
+}
+
+.query-id {
+    color: #d4d4d4;
+    font-family: monospace;
+}
+
 /* Empty State */
 #empty-state {
     text-align: center;

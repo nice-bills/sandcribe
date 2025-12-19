@@ -2,6 +2,20 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
 });
 
+function saveIntent(executionId, newIntent) {
+    chrome.storage.local.get(['dune_executions'], (result) => {
+        const history = result.dune_executions || [];
+        const index = history.findIndex(r => r.execution_id === executionId);
+        
+        if (index !== -1) {
+            history[index].user_intent = newIntent;
+            chrome.storage.local.set({ dune_executions: history }, () => {
+                loadData(); // Re-render
+            });
+        }
+    });
+}
+
 function loadData() {
     chrome.storage.local.get(['dune_executions', 'dune_stats'], (result) => {
         const stats = result.dune_stats || { total: 0, errors: 0, successes: 0, fixes: 0 };
@@ -44,11 +58,29 @@ function loadData() {
                 statusHtml = '<span class="status-badge status-error">Error</span>';
             }
 
+            // Intent / ID Column
+            const intentDisplay = record.user_intent 
+                ? `<span class="intent-text" title="${record.user_intent}">${record.user_intent.substring(0, 15)}${record.user_intent.length > 15 ? '...' : ''}</span>` 
+                : `<span class="query-id">#${record.query_id || '???'}</span>`;
+
             tr.innerHTML = `
                 <td>${timeStr}</td>
-                <td>#${record.query_id}</td>
+                <td class="id-cell" title="Click to edit intent">
+                    ${intentDisplay} <span class="edit-icon">✎</span>
+                </td>
                 <td>${statusHtml}</td>
             `;
+
+            // Bind Edit Event
+            const idCell = tr.querySelector('.id-cell');
+            idCell.addEventListener('click', () => {
+                const current = record.user_intent || '';
+                const input = prompt("Enter query intent/description:", current);
+                if (input !== null) { // If not cancelled
+                    saveIntent(record.execution_id, input);
+                }
+            });
+
             tbody.appendChild(tr);
         });
     });
