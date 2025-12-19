@@ -29,15 +29,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-// Cache query text by Query ID
-const queryTextCache = new Map();
+// Cache query data by Query ID
+const queryCache = new Map();
 
 function handleFindQuery(payload) {
     try {
         const queryData = payload.data?.query;
-        if (queryData && queryData.id && queryData.ownerFields?.query) {
-            queryTextCache.set(queryData.id, queryData.ownerFields.query);
-            console.log(`[DUNE-LOGGER-BG] Cached text for Query ${queryData.id}`);
+        if (queryData && queryData.id) {
+            const text = queryData.ownerFields?.query;
+            const aiDesc = queryData.aiDescription;
+            const desc = queryData.description;
+            
+            // Prefer AI description, fallback to user description
+            const bestDesc = aiDesc || desc;
+
+            queryCache.set(queryData.id, { 
+                text: text, 
+                description: bestDesc 
+            });
+            console.log(`[DUNE-LOGGER-BG] Cached data for Query ${queryData.id}`);
         }
     } catch (err) {
         console.error('[DUNE-LOGGER-BG] Error handling FindQuery:', err);
@@ -45,70 +55,17 @@ function handleFindQuery(payload) {
 }
 
 async function fetchQueryTextFromDune(queryId) {
-    const graphqlEndpoint = "https://core-api.dune.com/public/graphql";
-    const payload = {
-        "operationName": "GetQuery",
-        "variables": {"id": queryId},
-        "query": `
-            query GetQuery($id: Int!) {
-                query(id: $id) {
-                    id
-                    name
-                    description
-                    parameters
-                    ownerFields {
-                        query
-                    }
-                }
-            }
-        `
-    };
-
-    try {
-        const response = await fetch(graphqlEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Referer': 'https://dune.com/' // Mimic browser for consistency
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            console.error(`[DUNE-LOGGER-BG] Failed to fetch query ${queryId} from Dune API: ${response.status} ${response.statusText}`);
-            return null;
-        }
-
-        const data = await response.json();
-        const query = data?.data?.query;
-        if (query && query.ownerFields && query.ownerFields.query) {
-            console.log(`[DUNE-LOGGER-BG] Successfully fetched SQL for Query ${queryId} from Dune API.`);
-            return query.ownerFields.query;
-        } else {
-            console.warn(`[DUNE-LOGGER-BG] SQL text not found in GraphQL response for Query ${queryId}.`, data);
-            return null;
-        }
-    } catch (error) {
-        console.error(`[DUNE-LOGGER-BG] Error in fetchQueryTextFromDune for Query ${queryId}:`, error);
-        return null;
-    }
+    // ... existing code ...
 }
 
 async function handleExecution(payload) {
     try {
-        // payload structure: { execution_queued: ..., execution_running: ..., execution_succeeded: {...}, execution_failed: {...} }
-        
-        // We only care if it finished (succeeded or failed)
-        if (!payload.execution_succeeded && !payload.execution_failed) {
-            return; // Still running or queued
-        }
+        // ... (execution check logic) ...
+        if (!payload.execution_succeeded && !payload.execution_failed) return;
 
         const isSuccess = !!payload.execution_succeeded;
         const data = isSuccess ? payload.execution_succeeded : payload.execution_failed;
         
-        // Extract key info
-        // execution_id is in the inner data object
-        // query_id is injected at the top level by content_main.js
         const executionId = data.execution_id;
         const queryId = payload.query_id;
 
@@ -117,11 +74,15 @@ async function handleExecution(payload) {
             return;
         }
 
-        // Try to get text from payload (override) OR cache
-        let queryText = payload.query_text || queryTextCache.get(queryId) || null;
+        // Try to get data from cache
+        const cached = queryCache.get(queryId) || {};
+        let queryText = payload.query_text || cached.text || null;
+        let userIntent = cached.description || null;
 
-        // If queryText is still null, try to fetch it from Dune API (like dune-mcp does)
+        // If queryText is still null, try to fetch it from Dune API
         if (!queryText && queryId) {
+            // Note: fetchQueryTextFromDune currently returns only text. 
+            // We might want to update it to return description too in future.
             queryText = await fetchQueryTextFromDune(queryId);
         }
 
@@ -133,6 +94,7 @@ async function handleExecution(payload) {
             status: isSuccess ? 'success' : 'error',
             error_message: isSuccess ? null : (data.error?.message || JSON.stringify(data.error) || "Unknown error"),
             query_text: queryText, 
+            user_intent: userIntent, // Now populated from cache
             has_fix: false,
             fix_execution_id: null
         };

@@ -59,8 +59,22 @@ function loadData() {
             }
 
             // Intent / ID Column
-            const intentDisplay = record.user_intent 
-                ? `<span class="intent-text" title="${record.user_intent}">${record.user_intent.substring(0, 15)}${record.user_intent.length > 15 ? '...' : ''}</span>` 
+            let intentText = record.user_intent;
+            let displayIntent = '';
+            
+            if (intentText) {
+                // Cleanup common AI prefixes
+                intentText = intentText.replace(/^(Certainly!|Sure!|Here are|Here is).+?:\s*/i, '');
+                
+                // Truncate for display
+                const MAX_LEN = 40;
+                displayIntent = intentText.length > MAX_LEN 
+                    ? intentText.substring(0, MAX_LEN) + '...'
+                    : intentText;
+            }
+
+            const intentDisplay = intentText 
+                ? `<span class="intent-text" title="${record.user_intent}">${displayIntent}</span>` 
                 : `<span class="query-id">#${record.query_id || '???'}</span>`;
 
             tr.innerHTML = `
