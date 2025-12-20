@@ -1,6 +1,47 @@
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
+    document.getElementById('export-btn').addEventListener('click', exportCSV);
 });
+
+function exportCSV() {
+    chrome.storage.local.get(['dune_executions'], (result) => {
+        const history = result.dune_executions || [];
+        if (history.length === 0) {
+            alert("No data to export yet.");
+            return;
+        }
+
+        // Define headers
+        const headers = [
+            "timestamp", "query_id", "status", "query_text", 
+            "user_intent", "error_message", "execution_id", "has_fix", "fix_execution_id"
+        ];
+
+        // Create CSV content
+        const csvRows = [headers.join(',')];
+
+        for (const row of history) {
+            const values = headers.map(header => {
+                let val = row[header] === null || row[header] === undefined ? "" : row[header];
+                // Escape double quotes by doubling them
+                const escaped = String(val).replace(/"/g, '""');
+                return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+        }
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `dune_history_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+}
 
 function saveIntent(executionId, newIntent) {
     chrome.storage.local.get(['dune_executions'], (result) => {
