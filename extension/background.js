@@ -1,13 +1,21 @@
 // background.js
-// Handles storage, auto-fix detection, and sync (future).
+// Handles storage, auto-fix detection, and sync.
 
 // Constants
 const MAX_LOCAL_HISTORY = 500; // Keep last 500 executions to save space
+const SESSION_ID = crypto.randomUUID();
+const BACKEND_URL = 'http://localhost:8000/sync';
+const SYNC_THRESHOLD = 5; // Sync every 5 new records
 
 // Initialize on install
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('[DUNE-LOGGER-BG] Extension installed.');
+    console.log('[DUNE-LOGGER-BG] Extension installed. Session:', SESSION_ID);
+    
+    // Create alarm for periodic sync (every 10 mins)
+    chrome.alarms.create('periodic-sync', { periodInMinutes: 10 });
+
     chrome.storage.local.get(['dune_executions', 'dune_stats'], (result) => {
+// ...
         if (!result.dune_executions) {
             chrome.storage.local.set({ dune_executions: [] });
         }
@@ -19,12 +27,22 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
-// Listen for messages from content script
+// Listen for periodic sync alarm
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'periodic-sync') {
+        console.log('[DUNE-LOGGER-BG] Periodic sync triggered...');
+        syncToBackend(true);
+    }
+});
+
+// Listen for messages from content script or popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'DUNE_LOGGER_EXECUTION') {
         handleExecution(message.payload);
     } else if (message.type === 'DUNE_LOGGER_FIND_QUERY') {
         handleFindQuery(message.payload);
+    } else if (message.type === 'DUNE_LOGGER_TRIGGER_SYNC') {
+        syncToBackend(true); // Force sync regardless of threshold
     }
     return true;
 });
@@ -40,7 +58,6 @@ function handleFindQuery(payload) {
             const aiDesc = queryData.aiDescription;
             const desc = queryData.description;
             
-            // Prefer AI description, fallback to user description
             const bestDesc = aiDesc || desc;
 
             queryCache.set(queryData.id, { 
@@ -55,53 +72,77 @@ function handleFindQuery(payload) {
 }
 
 async function fetchQueryTextFromDune(queryId) {
-    // ... existing code ...
+    const graphqlEndpoint = "https://core-api.dune.com/public/graphql";
+    const payload = {
+        "operationName": "GetQuery",
+        "variables": {"id": queryId},
+        "query": `
+            query GetQuery($id: Int!) {
+                query(id: $id) {
+                    id
+                    name
+                    description
+                    parameters
+                    ownerFields {
+                        query
+                    }
+                }
+            }
+        `
+    };
+
+    try {
+        const response = await fetch(graphqlEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Referer': 'https://dune.com/'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        const query = data?.data?.query;
+        if (query && query.ownerFields && query.ownerFields.query) {
+            return query.ownerFields.query;
+        }
+        return null;
+    } catch (error) {
+        return null;
+    }
 }
 
-// Helper to classify errors
 function classifyError(msg) {
     if (!msg) return null;
     const m = msg.toLowerCase();
-    
-    // Trino/Presto/Dune specific error patterns
     if (m.includes('syntax') || m.includes('unexpected') || m.includes('mismatched input')) return 'syntax_error';
     if (m.includes('column') && (m.includes('cannot be resolved') || m.includes('not found'))) return 'schema_error';
     if (m.includes('table') && (m.includes('does not exist') || m.includes('not found'))) return 'schema_error';
     if (m.includes('type') || m.includes('cannot cast') || m.includes('mismatch')) return 'type_error';
     if (m.includes('timeout') || m.includes('time limit') || m.includes('deadline exceeded')) return 'timeout_error';
-    if (m.includes('interval')) return 'interval_error'; // Common Dune/Trino interval syntax issue
+    if (m.includes('interval')) return 'interval_error';
     if (m.includes('permission') || m.includes('access denied') || m.includes('not authorized')) return 'permission_error';
-    
     return 'unknown_error';
 }
 
 async function handleExecution(payload) {
     try {
-        // payload structure: { execution_queued: ..., execution_running: ..., execution_succeeded: {...}, execution_failed: {...} }
-        
-        // We only care if it finished (succeeded or failed)
-        if (!payload.execution_succeeded && !payload.execution_failed) {
-            return; // Still running or queued
-        }
+        if (!payload.execution_succeeded && !payload.execution_failed) return;
 
         const isSuccess = !!payload.execution_succeeded;
         const data = isSuccess ? payload.execution_succeeded : payload.execution_failed;
         
-        // Extract key info
         const executionId = data.execution_id;
         const queryId = payload.query_id;
 
-        if (!executionId || !queryId) {
-            console.warn('[DUNE-LOGGER-BG] Missing ID in execution data:', { executionId, queryId });
-            return;
-        }
+        if (!executionId || !queryId) return;
 
-        // Try to get data from cache
         const cached = queryCache.get(queryId) || {};
         let queryText = payload.query_text || cached.text || null;
         let userIntent = cached.description || null;
 
-        // If queryText is still null, try to fetch it from Dune API
         if (!queryText && queryId) {
             queryText = await fetchQueryTextFromDune(queryId);
         }
@@ -116,11 +157,12 @@ async function handleExecution(payload) {
             query_id: queryId,
             status: isSuccess ? 'success' : 'error',
             error_message: errorMessage,
-            error_type: errorType, // Added classification
+            error_type: errorType,
             query_text: queryText, 
             user_intent: userIntent,
             has_fix: false,
-            fix_execution_id: null
+            fix_execution_id: null,
+            synced: false
         };
 
         await saveExecution(record);
@@ -130,51 +172,87 @@ async function handleExecution(payload) {
     }
 }
 
+async function syncToBackend(force = false) {
+    try {
+        const data = await chrome.storage.local.get(['dune_executions']);
+        let history = data.dune_executions || [];
+        
+        const unsynced = history.filter(r => !r.synced);
+        
+        // Only sync if over threshold OR forced (e.g. from intent update)
+        if (unsynced.length >= SYNC_THRESHOLD || (force && unsynced.length > 0)) {
+            console.log(`[DUNE-LOGGER-BG] Syncing ${unsynced.length} records (force=${force})...`);
+            
+            const logs = unsynced.map(r => ({
+                id: r.id,
+                session_id: SESSION_ID,
+                query_id: r.query_id,
+                query_name: null, 
+                query_text: r.query_text,
+                user_intent: r.user_intent || null,
+                execution_id: r.execution_id,
+                execution_succeeded: r.status === 'success',
+                runtime_seconds: 0,
+                error_message: r.error_message,
+                error_type: r.error_type,
+                has_fix: r.has_fix,
+                fix_execution_id: r.fix_execution_id,
+                fixed_query: null,
+                training_pair_type: r.status === 'success' ? 'successful_query' : 'error_correction',
+                timestamp: r.timestamp
+            }));
+
+            const response = await fetch(BACKEND_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: SESSION_ID, logs: logs })
+            });
+
+            if (response.ok) {
+                const syncedIds = new Set(unsynced.map(u => u.id));
+                history = history.map(r => {
+                    if (syncedIds.has(r.id)) return { ...r, synced: true };
+                    return r;
+                });
+                
+                await chrome.storage.local.set({ dune_executions: history });
+                console.log('[DUNE-LOGGER-BG] Sync successful!');
+            }
+        }
+    } catch (e) {
+        console.error('[DUNE-LOGGER-BG] Sync error:', e);
+    }
+}
+
 async function saveExecution(newRecord) {
     const data = await chrome.storage.local.get(['dune_executions', 'dune_stats']);
     let history = data.dune_executions || [];
     let stats = data.dune_stats || { total: 0, errors: 0, successes: 0, fixes: 0 };
 
-    // Deduplicate: Check if execution_id already exists
-    if (history.some(r => r.execution_id === newRecord.execution_id)) {
-        return; // Already saved
-    }
+    if (history.some(r => r.execution_id === newRecord.execution_id)) return;
 
-    // Auto-fix Detection Logic
     if (newRecord.status === 'success') {
-        // Look for the most recent ERROR for this same query_id that hasn't been fixed yet
-        // We search backwards from the end
         for (let i = history.length - 1; i >= 0; i--) {
             const prev = history[i];
             if (prev.query_id === newRecord.query_id && prev.status === 'error' && !prev.has_fix) {
-                // Found a match! Link them.
                 prev.has_fix = true;
                 prev.fix_execution_id = newRecord.execution_id;
+                prev.synced = false; 
                 stats.fixes++;
-                console.log(`[DUNE-LOGGER-BG] Auto-fix detected! Error ${prev.execution_id} -> Fix ${newRecord.execution_id}`);
-                break; // Only fix the most recent one
+                break;
             }
         }
     }
 
-    // Update stats
     stats.total++;
     if (newRecord.status === 'success') stats.successes++;
     else stats.errors++;
 
-    // Add new record
     history.push(newRecord);
+    if (history.length > MAX_LOCAL_HISTORY) history.shift();
 
-    // Limit history size (Queue style)
-    if (history.length > MAX_LOCAL_HISTORY) {
-        history.shift(); // Remove oldest
-    }
-
-    // Save back
-    await chrome.storage.local.set({ 
-        dune_executions: history,
-        dune_stats: stats
-    });
+    await chrome.storage.local.set({ dune_executions: history, dune_stats: stats });
+    console.log('[DUNE-LOGGER-BG] Saved execution:', newRecord.status);
     
-    console.log('[DUNE-LOGGER-BG] Saved execution:', newRecord.status, newRecord.execution_id);
+    syncToBackend();
 }

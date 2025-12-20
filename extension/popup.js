@@ -50,8 +50,13 @@ function saveIntent(executionId, newIntent) {
         
         if (index !== -1) {
             history[index].user_intent = newIntent;
+            history[index].synced = false; // Mark as unsynced
+            
             chrome.storage.local.set({ dune_executions: history }, () => {
                 loadData(); // Re-render
+                
+                // Trigger immediate sync in background
+                chrome.runtime.sendMessage({ type: 'DUNE_LOGGER_TRIGGER_SYNC' });
             });
         }
     });

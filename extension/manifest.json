@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Logs Dune Analytics SQL queries for history and debugging.",
   "permissions": [
-    "storage"
+    "storage",
+    "alarms"
   ],
   "host_permissions": [
     "https://dune.com/*",
