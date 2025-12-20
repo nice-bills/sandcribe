@@ -58,14 +58,36 @@ async function fetchQueryTextFromDune(queryId) {
     // ... existing code ...
 }
 
+// Helper to classify errors
+function classifyError(msg) {
+    if (!msg) return null;
+    const m = msg.toLowerCase();
+    
+    // Trino/Presto/Dune specific error patterns
+    if (m.includes('syntax') || m.includes('unexpected') || m.includes('mismatched input')) return 'syntax_error';
+    if (m.includes('column') && (m.includes('cannot be resolved') || m.includes('not found'))) return 'schema_error';
+    if (m.includes('table') && (m.includes('does not exist') || m.includes('not found'))) return 'schema_error';
+    if (m.includes('type') || m.includes('cannot cast') || m.includes('mismatch')) return 'type_error';
+    if (m.includes('timeout') || m.includes('time limit') || m.includes('deadline exceeded')) return 'timeout_error';
+    if (m.includes('interval')) return 'interval_error'; // Common Dune/Trino interval syntax issue
+    if (m.includes('permission') || m.includes('access denied') || m.includes('not authorized')) return 'permission_error';
+    
+    return 'unknown_error';
+}
+
 async function handleExecution(payload) {
     try {
-        // ... (execution check logic) ...
-        if (!payload.execution_succeeded && !payload.execution_failed) return;
+        // payload structure: { execution_queued: ..., execution_running: ..., execution_succeeded: {...}, execution_failed: {...} }
+        
+        // We only care if it finished (succeeded or failed)
+        if (!payload.execution_succeeded && !payload.execution_failed) {
+            return; // Still running or queued
+        }
 
         const isSuccess = !!payload.execution_succeeded;
         const data = isSuccess ? payload.execution_succeeded : payload.execution_failed;
         
+        // Extract key info
         const executionId = data.execution_id;
         const queryId = payload.query_id;
 
@@ -81,10 +103,11 @@ async function handleExecution(payload) {
 
         // If queryText is still null, try to fetch it from Dune API
         if (!queryText && queryId) {
-            // Note: fetchQueryTextFromDune currently returns only text. 
-            // We might want to update it to return description too in future.
             queryText = await fetchQueryTextFromDune(queryId);
         }
+
+        const errorMessage = isSuccess ? null : (data.error?.message || JSON.stringify(data.error) || "Unknown error");
+        const errorType = isSuccess ? null : classifyError(errorMessage);
 
         const record = {
             id: crypto.randomUUID(),
@@ -92,9 +115,10 @@ async function handleExecution(payload) {
             execution_id: executionId,
             query_id: queryId,
             status: isSuccess ? 'success' : 'error',
-            error_message: isSuccess ? null : (data.error?.message || JSON.stringify(data.error) || "Unknown error"),
+            error_message: errorMessage,
+            error_type: errorType, // Added classification
             query_text: queryText, 
-            user_intent: userIntent, // Now populated from cache
+            user_intent: userIntent,
             has_fix: false,
             fix_execution_id: null
         };

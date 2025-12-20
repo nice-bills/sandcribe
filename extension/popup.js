@@ -13,7 +13,7 @@ function exportCSV() {
 
         // Define headers
         const headers = [
-            "timestamp", "query_id", "status", "query_text", 
+            "timestamp", "query_id", "status", "error_type", "query_text", 
             "user_intent", "error_message", "execution_id", "has_fix", "fix_execution_id"
         ];
 
@@ -96,7 +96,9 @@ function loadData() {
             } else if (record.status === 'success') {
                 statusHtml = '<span class="status-badge status-success">Success</span>';
             } else {
-                statusHtml = '<span class="status-badge status-error">Error</span>';
+                // Show error type if available, else generic Error
+                const errLabel = record.error_type || 'Error';
+                statusHtml = `<span class="status-badge status-error" title="${record.error_message || ''}">${errLabel}</span>`;
             }
 
             // Intent / ID Column
