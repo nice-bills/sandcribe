@@ -33,12 +33,12 @@ async def sync_logs(request: SyncRequest):
     if len(request.logs) > 5:
         log_summary += f" ... (+{len(request.logs)-5} more)"
     
-    print(f"📦 Syncing {len(data_to_insert)} logs: [{log_summary}]")
+    print(f"Syncing {len(data_to_insert)} logs: [{log_summary}]")
 
     try:
         # Use upsert to handle updates
         supabase.table("shared_queries").upsert(data_to_insert).execute()
         return {"status": "success", "count": len(request.logs)}
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
