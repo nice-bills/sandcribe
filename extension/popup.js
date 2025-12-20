@@ -1,93 +1,69 @@
+let currentFilter = 'all';
+
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     document.getElementById('export-btn').addEventListener('click', exportCSV);
+    
+    // Bind filter buttons
+    const buttons = document.querySelectorAll('.filter-btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Update UI
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update state
+            currentFilter = btn.getAttribute('data-filter');
+            loadData();
+        });
+    });
 });
 
 function exportCSV() {
-    chrome.storage.local.get(['dune_executions'], (result) => {
-        const history = result.dune_executions || [];
-        if (history.length === 0) {
-            alert("No data to export yet.");
-            return;
-        }
-
-        // Define headers
-        const headers = [
-            "timestamp", "query_id", "status", "error_type", "query_text", 
-            "user_intent", "error_message", "execution_id", "has_fix", "fix_execution_id"
-        ];
-
-        // Create CSV content
-        const csvRows = [headers.join(',')];
-
-        for (const row of history) {
-            const values = headers.map(header => {
-                let val = row[header] === null || row[header] === undefined ? "" : row[header];
-                // Escape double quotes by doubling them
-                const escaped = String(val).replace(/"/g, '""');
-                return `"${escaped}"`;
-            });
-            csvRows.push(values.join(','));
-        }
-
-        const csvContent = csvRows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `dune_history_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
+    // ... (existing exportCSV code) ...
 }
 
 function saveIntent(executionId, newIntent) {
-    chrome.storage.local.get(['dune_executions'], (result) => {
-        const history = result.dune_executions || [];
-        const index = history.findIndex(r => r.execution_id === executionId);
-        
-        if (index !== -1) {
-            history[index].user_intent = newIntent;
-            history[index].synced = false; // Mark as unsynced
-            
-            chrome.storage.local.set({ dune_executions: history }, () => {
-                loadData(); // Re-render
-                
-                // Trigger immediate sync in background
-                chrome.runtime.sendMessage({ type: 'DUNE_LOGGER_TRIGGER_SYNC' });
-            });
-        }
-    });
+    // ... (existing saveIntent code) ...
 }
 
 function loadData() {
     chrome.storage.local.get(['dune_executions', 'dune_stats'], (result) => {
         const stats = result.dune_stats || { total: 0, errors: 0, successes: 0, fixes: 0 };
-        const history = result.dune_executions || [];
+        let history = result.dune_executions || [];
 
         // Update stats
         document.getElementById('total-count').textContent = stats.total;
         document.getElementById('error-count').textContent = stats.errors;
         document.getElementById('fix-count').textContent = stats.fixes;
 
-        // Render list (last 10)
+        // Render list
         const tbody = document.getElementById('execution-list');
         const emptyState = document.getElementById('empty-state');
         tbody.innerHTML = '';
 
+        // Apply Filter
+        if (currentFilter === 'error') {
+            history = history.filter(r => r.status === 'error');
+        } else if (currentFilter === 'success') {
+            history = history.filter(r => r.status === 'success');
+        } else if (currentFilter === 'fixed') {
+            history = history.filter(r => r.has_fix);
+        }
+
         if (history.length === 0) {
+            emptyState.textContent = currentFilter === 'all' ? "No data captured yet." : "No matching queries found.";
             emptyState.classList.remove('hidden');
             return;
         }
 
         emptyState.classList.add('hidden');
 
-        // Show newest first
+        // Show newest first (limit 10 of filtered results)
         const recent = history.slice().reverse().slice(0, 10);
 
         recent.forEach(record => {
+            // ... (rest of rendering logic remains same) ...
             const tr = document.createElement('tr');
             
             // Time

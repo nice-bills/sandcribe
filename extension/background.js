@@ -39,12 +39,17 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'DUNE_LOGGER_EXECUTION') {
         handleExecution(message.payload);
+        sendResponse({status: 'processing'});
     } else if (message.type === 'DUNE_LOGGER_FIND_QUERY') {
         handleFindQuery(message.payload);
+        sendResponse({status: 'processing'});
     } else if (message.type === 'DUNE_LOGGER_TRIGGER_SYNC') {
-        syncToBackend(true); // Force sync regardless of threshold
+        // Trigger sync but don't make the sender wait for it to finish
+        syncToBackend(true); 
+        sendResponse({status: 'sync_triggered'});
     }
-    return true;
+    // Return false because we sent the response synchronously above
+    return false; 
 });
 
 // Cache query data by Query ID
