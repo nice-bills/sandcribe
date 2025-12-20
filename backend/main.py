@@ -23,15 +23,22 @@ async def sync_logs(request: SyncRequest):
     supabase = get_supabase_client()
     
     # Convert Pydantic models to dicts
-    data_to_insert = [log.model_dump() for log in request.logs]
+    data_to_insert = [log.model_dump(mode='json') for log in request.logs]
     
     if not data_to_insert:
         return {"status": "success", "count": 0}
 
+    # Concise logging
+    log_summary = ", ".join([f"#{l.query_id}({'S' if l.execution_succeeded else 'E'})" for l in request.logs[:5]])
+    if len(request.logs) > 5:
+        log_summary += f" ... (+{len(request.logs)-5} more)"
+    
+    print(f"📦 Syncing {len(data_to_insert)} logs: [{log_summary}]")
+
     try:
-        response = supabase.table("shared_queries").upsert(data_to_insert).execute()
+        # Use upsert to handle updates
+        supabase.table("shared_queries").upsert(data_to_insert).execute()
         return {"status": "success", "count": len(request.logs)}
     except Exception as e:
-        print(f"Error syncing logs: {e}")
-        # Return 500 so extension knows to retry later
+        print(f"❌ ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
