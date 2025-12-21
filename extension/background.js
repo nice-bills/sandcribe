@@ -236,17 +236,29 @@ async function saveExecution(newRecord) {
 
     if (history.some(r => r.execution_id === newRecord.execution_id)) return;
 
+    // Auto-fix Detection Logic: Link SUCCESS to all recent ERRORS
     if (newRecord.status === 'success') {
+        let foundErrors = false;
+        // Search backwards and mark all previous unfixed errors for this query_id
         for (let i = history.length - 1; i >= 0; i--) {
             const prev = history[i];
-            if (prev.query_id === newRecord.query_id && prev.status === 'error' && !prev.has_fix) {
+            
+            // If we hit a different query_id, stop (optional, but keeps it precise)
+            if (prev.query_id !== newRecord.query_id) continue;
+
+            if (prev.status === 'error' && !prev.has_fix) {
                 prev.has_fix = true;
                 prev.fix_execution_id = newRecord.execution_id;
+                prev.fixed_query = newRecord.query_text; // Store what actually worked
                 prev.synced = false; 
                 stats.fixes++;
+                foundErrors = true;
+            } else if (prev.status === 'success') {
+                // If we hit a previous success, we've likely captured the relevant error chain
                 break;
             }
         }
+        if (foundErrors) console.log(`[DUNE-LOGGER-BG] Multi-fix applied for Query ${newRecord.query_id}`);
     }
 
     stats.total++;

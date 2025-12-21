@@ -63,8 +63,8 @@ function loadData() {
         const recent = history.slice().reverse().slice(0, 10);
 
         recent.forEach(record => {
-            // ... (rest of rendering logic remains same) ...
             const tr = document.createElement('tr');
+            tr.className = 'execution-row';
             
             // Time
             const date = new Date(record.timestamp);
@@ -77,9 +77,8 @@ function loadData() {
             } else if (record.status === 'success') {
                 statusHtml = '<span class="status-badge status-success">Success</span>';
             } else {
-                // Show error type if available, else generic Error
                 const errLabel = record.error_type || 'Error';
-                statusHtml = `<span class="status-badge status-error" title="${record.error_message || ''}">${errLabel}</span>`;
+                statusHtml = `<span class="status-badge status-error">${errLabel}</span>`;
             }
 
             // Intent / ID Column
@@ -87,39 +86,67 @@ function loadData() {
             let displayIntent = '';
             
             if (intentText) {
-                // Cleanup common AI prefixes
                 intentText = intentText.replace(/^(Certainly!|Sure!|Here are|Here is).+?:\s*/i, '');
-                
-                // Truncate for display
-                const MAX_LEN = 40;
+                const MAX_LEN = 35;
                 displayIntent = intentText.length > MAX_LEN 
                     ? intentText.substring(0, MAX_LEN) + '...'
                     : intentText;
             }
 
             const intentDisplay = intentText 
-                ? `<span class="intent-text" title="${record.user_intent}">${displayIntent}</span>` 
+                ? `<span class="intent-text">${displayIntent}</span>` 
                 : `<span class="query-id">#${record.query_id || '???'}</span>`;
 
             tr.innerHTML = `
                 <td>${timeStr}</td>
-                <td class="id-cell" title="Click to edit intent">
-                    ${intentDisplay} <span class="edit-icon">✎</span>
+                <td class="id-cell">
+                    ${intentDisplay} <span class="edit-icon" title="Edit intent">✎</span>
                 </td>
                 <td>${statusHtml}</td>
             `;
 
-            // Bind Edit Event
-            const idCell = tr.querySelector('.id-cell');
-            idCell.addEventListener('click', () => {
+            // Expandable Detail Row
+            const detailTr = document.createElement('tr');
+            detailTr.className = 'detail-row hidden';
+            detailTr.innerHTML = `
+                <td colspan="3">
+                    <div class="detail-content">
+                        ${record.error_message ? `<div class="detail-error"><strong>Error:</strong> ${record.error_message}</div>` : ''}
+                        <div class="detail-sql">
+                            <strong>${record.status === 'error' ? 'Failed SQL' : 'SQL'}:</strong>
+                            <pre>${record.query_text || 'No SQL captured'}</pre>
+                        </div>
+                        ${record.fixed_query ? `
+                        <div class="detail-sql fixed-sql">
+                            <strong>Fixed SQL:</strong>
+                            <pre>${record.fixed_query}</pre>
+                        </div>` : ''}
+                        <div class="detail-meta">
+                            <span>Exec ID: ${record.execution_id}</span>
+                            ${record.fix_execution_id ? `<span>Fixed by: ${record.fix_execution_id}</span>` : ''}
+                        </div>
+                    </div>
+                </td>
+            `;
+
+            // Bind Events
+            const editIcon = tr.querySelector('.edit-icon');
+            editIcon.addEventListener('click', (e) => {
+                e.stopPropagation(); // Don't expand when clicking edit
                 const current = record.user_intent || '';
                 const input = prompt("Enter query intent/description:", current);
-                if (input !== null) { // If not cancelled
+                if (input !== null) {
                     saveIntent(record.execution_id, input);
                 }
             });
 
+            tr.addEventListener('click', () => {
+                detailTr.classList.toggle('hidden');
+                tr.classList.toggle('active-row');
+            });
+
             tbody.appendChild(tr);
+            tbody.appendChild(detailTr);
         });
     });
 }

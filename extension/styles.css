@@ -183,15 +183,18 @@ td:last-child {
 
 /* Interactive ID/Intent Cell */
 .id-cell {
-    cursor: pointer;
     position: relative;
     white-space: nowrap;
     overflow: hidden;
     max-width: 150px;
 }
 
-.id-cell:hover .edit-icon {
-    opacity: 1;
+.execution-row {
+    cursor: pointer;
+}
+
+.active-row {
+    background: #2d2d2d !important;
 }
 
 .edit-icon {
@@ -199,6 +202,58 @@ td:last-child {
     font-size: 10px;
     margin-left: 4px;
     transition: opacity 0.2s;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.edit-icon:hover {
+    opacity: 1;
+    background: #444;
+    border-radius: 2px;
+}
+
+/* Detail Row */
+.detail-row td {
+    padding: 0 8px 8px 8px;
+    background: #252526;
+}
+
+.detail-content {
+    border-left: 2px solid #37373d;
+    padding: 10px;
+    font-size: 11px;
+    color: #bbb;
+}
+
+.detail-error {
+    color: #f48771;
+    margin-bottom: 8px;
+    padding: 4px 0;
+}
+
+.detail-sql pre {
+    background: #1e1e1e;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-height: 150px;
+    margin: 4px 0;
+    color: #9cdcfe; /* VS Code Variable color */
+    font-size: 10px;
+    border: 1px solid #333;
+}
+
+.fixed-sql pre {
+    border-color: rgba(137, 209, 133, 0.3);
+    background: #1a221a;
+}
+
+.detail-meta {
+    margin-top: 8px;
+    font-size: 9px;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
 }
 
 .intent-text {
