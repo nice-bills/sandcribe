@@ -235,12 +235,16 @@ td:last-child {
     background: #1e1e1e;
     padding: 8px;
     border-radius: 4px;
-    overflow-x: auto;
-    max-height: 150px;
+    overflow-x: auto; /* Enable horizontal scroll */
+    overflow-y: auto; /* Enable vertical scroll */
+    max-height: 200px; /* Slightly taller */
     margin: 4px 0;
-    color: #9cdcfe; /* VS Code Variable color */
+    color: #9cdcfe;
     font-size: 10px;
     border: 1px solid #333;
+    white-space: pre; /* Keep original spacing and prevent wrapping */
+    word-wrap: normal; /* Disable word breaking */
+    width: 280px; /* Force a width slightly smaller than popup to trigger scroll */
 }
 
 .fixed-sql pre {
