@@ -266,6 +266,26 @@ td:last-child {
     font-family: monospace;
 }
 
+/* Footer */
+.footer {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid #333;
+    text-align: center;
+}
+
+#clear-btn {
+    font-size: 9px;
+    color: #555;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+
+#clear-btn:hover {
+    color: #f48771;
+}
+
 /* Empty State */
 #empty-state {
     text-align: center;

@@ -44,13 +44,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleFindQuery(message.payload);
         sendResponse({status: 'processing'});
     } else if (message.type === 'DUNE_LOGGER_TRIGGER_SYNC') {
-        // Trigger sync but don't make the sender wait for it to finish
         syncToBackend(true); 
         sendResponse({status: 'sync_triggered'});
+    } else if (message.type === 'DUNE_LOGGER_CLEAR_DATA') {
+        clearAllData();
+        sendResponse({status: 'cleared'});
     }
-    // Return false because we sent the response synchronously above
     return false; 
 });
+
+async function clearAllData() {
+    await chrome.storage.local.set({ 
+        dune_executions: [],
+        dune_stats: { total: 0, errors: 0, successes: 0, fixes: 0 }
+    });
+    console.log('[DUNE-LOGGER-BG] All local data cleared.');
+}
 
 // Cache query data by Query ID
 const queryCache = new Map();

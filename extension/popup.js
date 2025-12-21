@@ -4,6 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     document.getElementById('export-btn').addEventListener('click', exportCSV);
     
+    // Bind Clear Button
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        if (confirm("Are you sure you want to clear all local history? This cannot be undone.")) {
+            chrome.runtime.sendMessage({ type: 'DUNE_LOGGER_CLEAR_DATA' }, (response) => {
+                loadData(); // Re-render empty state
+            });
+        }
+    });
+    
     // Bind filter buttons
     const buttons = document.querySelectorAll('.filter-btn');
     buttons.forEach(btn => {
