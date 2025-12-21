@@ -272,11 +272,18 @@ td:last-child {
     padding-top: 8px;
     border-top: 1px solid #333;
     text-align: center;
+    color: #555;
+    font-size: 9px;
+}
+
+#storage-usage {
+    margin-right: 4px;
 }
 
 #clear-btn {
     font-size: 9px;
     color: #555;
+    margin-left: 4px;
     cursor: pointer;
     text-decoration: underline;
     transition: color 0.2s;
