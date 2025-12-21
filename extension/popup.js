@@ -36,7 +36,17 @@ function saveIntent(executionId, newIntent) {
     // ... (existing saveIntent code) ...
 }
 
+function updateStorageUsage() {
+    chrome.storage.local.getBytesInUse(null, (bytes) => {
+        const kb = (bytes / 1024).toFixed(1);
+        const mb = (bytes / (1024 * 1024)).toFixed(2);
+        const display = bytes > 1024 * 500 ? `${mb}MB` : `${kb}KB`;
+        document.getElementById('storage-usage').textContent = `Storage: ${display} / 10MB`;
+    });
+}
+
 function loadData() {
+    updateStorageUsage();
     chrome.storage.local.get(['dune_executions', 'dune_stats'], (result) => {
         const stats = result.dune_stats || { total: 0, errors: 0, successes: 0, fixes: 0 };
         let history = result.dune_executions || [];
